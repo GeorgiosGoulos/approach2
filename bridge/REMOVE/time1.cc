@@ -1,0 +1,49 @@
+#include <mpi.h>
+#include <cstdio>
+
+using namespace std;
+
+#define D_SIZE 10000000
+
+int main() {
+
+MPI_Init(nullptr, nullptr);
+
+int rank, size;
+int tag = 0;
+
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+int num;
+float *arr = new float[D_SIZE];
+
+if (rank==0){
+
+	for (int i = 0; i < D_SIZE; i++){
+		*(arr + i) = 0.5 + i;
+	}
+
+	num = 5;
+	double start = MPI_Wtime();
+	printf("STARTING\n");
+	MPI_Send(arr, D_SIZE, MPI_DOUBLE, 1, tag, MPI_COMM_WORLD);
+	printf("HERE!\n");
+	MPI_Recv(&num, 1, MPI_INT, 1, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	double end = MPI_Wtime();
+	printf("0: It's %f\n", end - start);
+
+}
+else if (rank==1){
+
+	MPI_Recv(arr, D_SIZE, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);	
+	printf("YOOOOOOO\n");
+	num=0;
+	MPI_Send(&num, 1, MPI_INT, 0, tag, MPI_COMM_WORLD);
+}
+
+
+MPI_Finalize();
+
+
+}
