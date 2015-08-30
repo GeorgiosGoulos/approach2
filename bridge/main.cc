@@ -40,12 +40,16 @@ void stencil_operation(System& sba_system);
  * @param sba_system the System instance
  * @param size_of_array the size of float array to be sent in bytes
  */
-void test_time_send_dresp(System& sba_system, int size_of_array);
+void test_time_dresp(System& sba_system, int size_of_array);
 #endif // EVALUATE
 
-//void neighboursreduce_operation(System& sba_system); // TODO: Use or Remove?
+
+
+
 
 int main(int argc, char *argv[]){
+
+
 
 #ifdef VERBOSE
 	stringstream ss;
@@ -83,7 +87,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
-	test_time_send_dresp(sba_system, 200000);
+	test_time_dresp(sba_system, 2000000);
 #endif // EVALUATE
 	
 	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
@@ -150,7 +154,7 @@ void send_packet_no_dresp(System& sba_system){
 		Word return_to_field = 6;
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
-		Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
+		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
 
 		/* Create the GMCF packet. This function is part of the original GMCF code */
 		Packet_t packet = mkPacket(header, payload);
@@ -169,7 +173,7 @@ void send_packet_no_dresp(System& sba_system){
 }
 
 #ifdef EVALUATE
-void test_time_send_dresp(System& sba_system, int size_of_array){
+void test_time_dresp(System& sba_system, int size_of_array){
 
 	if (sba_system.get_rank() == 0) {
 

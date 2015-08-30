@@ -26,6 +26,28 @@ struct bridge_packets{
 	std::vector<Packet_t> packet_list;
 };
 
+//TODO: Document if it works
+
+int create_tag(tag_t tag_type, receiver_t receiver=0, sender_t sender=0){
+	int tag_field = (tag_type << FS_tag_t) & F_tag_t;
+	int receiver_field = (receiver << FS_receiver_t) & F_receiver_t;
+	int sender_field = (sender << FS_sender_t) & F_sender_t;
+	int final_tag = tag_field + receiver_field + sender_field;
+	return final_tag;
+}
+
+int get_tag_type(int final_tag){
+	return (final_tag & F_tag_t) >> FS_tag_t;
+}
+
+int get_receiver_id(int final_tag){
+	return (final_tag & F_receiver_t) >> FS_receiver_t;
+}
+
+int get_sender_id(int final_tag){
+	return (final_tag & F_sender_t) >> FS_sender_t;
+}
+
 /**
  * Used for passing parameters to threads 
  */
@@ -168,7 +190,6 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
 
-
 	//TODO: REMOVE
 	sba_system.start_send = MPI_Wtime();
 
@@ -178,36 +199,36 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* Flag that indicates the status of the send operation */
 	int flag;
 
-	/* Wait until the whole message is received */
+	/* Wait until the whole message is sent */
 	do { 
 		MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
 	} while (!flag);
 
-	/* If the GPRM packet is of type P_DRESP package the contents of the float array it points to along with the packet */
+	/* If the GPRM packet is of type P_DRESP send another message containing the float arrat that the packet has a pointer to */
 	if (getPacket_type(header) == P_DRESP) {
 
 		/* Get size of float array */
 		int data_size = getReturn_as(header); 
 
-	#ifdef VERBOSE
-		cout << "packP - Data size: " << data_size << endl; //TODO: Remove
-	#endif // VERBOSE
-
+		/* Get the pointer to the array */
 		void* ptr = (void *) packet.back();
 		float *arr = (float*)ptr;
 
+		/* Get node_id of sender tile */
+		int sender_id = (int) getReturn_to(header);
 
-		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag_dresp_data, *comm_ptr, &req);
+		/* Create the tag of the MPI message containing the float array */
+		int tag = create_tag(tag_dresp_data, dest, sender_id);
 
-		printf("YOOOOOOOOOOOOOOOOO SENDD1\n");
+		/* Send the MPI message */
+		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag, *comm_ptr, &req);
 
+		/* Wait until the whole message is sent */
 		do { 
 			MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
 		} while (!flag);
 
-		printf("YOOOOOOOOOOOOOOOOO SENDD2\n");
-
-		/* Delete the dynamically allocated float array */
+		/* Delete the dynamically allocated float array, it is no longer needed on this process */
 		delete arr;
 	}
 
@@ -381,7 +402,7 @@ void* wait_recv_any_th(void *arg){
 		/* Used for matching the detected incoming message when MPI_Imrecv() is invoked */
 		MPI_Message msg;
 
-		/* Test for a message, but don't receive */ 
+		/* Test for a tag_default message, but don't receive */ 
 		MPI_Improbe(MPI_ANY_SOURCE, tag_default, *comm_ptr, &flag, &msg, &status);
 
 		if (!flag){
@@ -389,25 +410,11 @@ void* wait_recv_any_th(void *arg){
 			continue;
 		}
 
-		//TODO: REMOVE
-		if (status.MPI_TAG==tag_time_ack){
-			sba_system.probe_ack = MPI_Wtime();
-			//printf("IT IS %f SECONDS\n", end - sba_system.start_send);
-		}
 
-		/* Check the tag of the incoming message. If it's a special-purpose tag (e.g. tag_stencil_reduce) maybe some other 
-		 * should deal with this message */ 
-		int tag = status.MPI_TAG; // TODO: Remove?
-		if (tag == tag_stencil_reduce) {
-			continue; // Let the stencil_operation_th() function do this work
-		}
-		if (tag == tag_neighboursreduce_reduce) {
-			continue; // Let the neighboursreduce_operation_th() function do this work
-		}
-
+		/* Used for retrieving the packet that the incoming MPI message contains */
 		Packet_t packet;
 
-		/* Find the packet size */
+		/* Finds the packet size */
 		int recv_size;
 		MPI_Get_count(&status, MPI_UINT64_T, &recv_size);
 		packet.resize(recv_size);
@@ -429,9 +436,11 @@ void* wait_recv_any_th(void *arg){
 		int from_rank = (int) (getReturn_to(getHeader(packet))-1) / NSERVICES;
 		printf("Rank %d: Received msg from rank %d\n", sba_system.get_rank(), from_rank);
 #endif // VERBOSE
+
+
 		Header_t header = getHeader(packet);
 
-		if (getPacket_type(header) == P_TREQ) {
+		if (getPacket_type(header) == P_TREQ) { // TODO: Mofify/remove?
 			double end = MPI_Wtime();
 
 			double start = sba_system.start;
@@ -446,11 +455,16 @@ void* wait_recv_any_th(void *arg){
 
 		}
 
+		int return_to = (int) getTo(getHeader(packet));
+		int to = (int) getReturn_to(getHeader(packet));
+
 		if (getPacket_type(header) == P_DRESP){
+
+			int tag = create_tag(tag_dresp_data, return_to, to);
 			
 			flag = false;
 			while (!flag){
-				MPI_Improbe(MPI_ANY_SOURCE, tag_dresp_data, *comm_ptr, &flag, &msg, &status);
+				MPI_Improbe(MPI_ANY_SOURCE, tag, *comm_ptr, &flag, &msg, &status);
 			}
 			MPI_Get_count(&status, MPI_FLOAT, &recv_size);
 			float *arr = new float[recv_size];
@@ -460,16 +474,11 @@ void* wait_recv_any_th(void *arg){
 				MPI_Test(&req, &flag, &status);
 			} while (!flag);
 
-			printf("YOOOOOOOOOOOOOOOOOOOOOOO RECVD\n");
-
 		}
-
-		int return_to = (int) getTo(getHeader(packet));
-		int to = (int) getReturn_to(getHeader(packet));
 	
 		/* Add the start time in Word form to the payload */
 		Payload_t payload;
-		payload.push_back(packet.at(packet.size()-1));
+		payload.push_back((Word)0);
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
 		header = mkHeader(P_TREQ, 2, 3, payload.size(), to, return_to, 7 , 0);
@@ -483,6 +492,9 @@ void* wait_recv_any_th(void *arg){
 
 
 #ifdef EVALUATE
+
+		int tag = status.MPI_TAG;
+
 		/* Check whether the packet is used for evaluating purposes */
 		if (tag == tag_time_send){
 			//printf("Rank %d: TAG_TIME_SEND RECEIVED\n", sba_system.get_rank()); // TODO: Delete
@@ -609,7 +621,7 @@ void* send_th_fcn(void *args) {
 	/* Flag that indicates the status of the send operation */
 	int flag;
 
-	/* Wait until the whole message is received */
+	/* Wait until the whole message is sent */
 	do { 
 		MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
 	} while (!flag);
