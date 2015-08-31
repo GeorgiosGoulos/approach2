@@ -71,7 +71,7 @@ double probe_ack;
 			int tsl;
 
 			/* Initialise MPI for multithreaded use*/
-			MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &tsl);	
+			MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &tsl);	
 
 			/* Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise */
 #ifdef MPI_TOPOLOGY_OPT

@@ -56,12 +56,8 @@ void Transceiver::transmit_packets()  {
 					cout << "Rank " << sba_system.get_rank() << " (transc): sending packet to " << dest_rank << " (" << dest << ","<<service_id<<")\n";
 	#endif // VERBOSE
 
-	#ifdef EVALUATE
-						//sba_system.send_th(packet, tag_time_send);
-						sba_system.send(packet, tag_time_send);
-	#else // EVALUATE
-						sba_system.send_th(packet);
-	#endif // EVALUATE
+						//sba_system.send_th(packet);
+						sba_system.send(packet);
 					}
 #endif // BRIDGE
                 }

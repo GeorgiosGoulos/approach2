@@ -91,6 +91,7 @@ int main(int argc, char *argv[]){
 #endif // EVALUATE
 	
 	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
+	//for (;;){}
 }
 
 // Test the transfer of GMCF packets of type P_DRESP to other MPI processes

@@ -190,11 +190,12 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
 
+
 	//TODO: REMOVE
 	sba_system.start_send = MPI_Wtime();
 
 	/* Send the MPI message */
-	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, to_rank, tag_default, *comm_ptr, &req);
+	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, to_rank, tag, *comm_ptr, &req);
 
 	/* Flag that indicates the status of the send operation */
 	int flag;
@@ -214,16 +215,16 @@ void Bridge::send(Packet_t packet, int tag) {
 		void* ptr = (void *) packet.back();
 		float *arr = (float*)ptr;
 
-		/* Get node_id of sender tile */
+		/* Get node_id of the tile that initiated the send operation */
 		int sender_id = (int) getReturn_to(header);
 
 		/* Create the tag of the MPI message containing the float array */
-		int tag = create_tag(tag_dresp_data, dest, sender_id);
+		tag = create_tag(tag_dresp_data, dest, sender_id);
 
-		/* Send the MPI message */
+		/* Send the float array */
 		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag, *comm_ptr, &req);
 
-		/* Wait until the whole message is sent */
+		/* Wait until the whole message is sent (this does not necessarily mean it was also received) */
 		do { 
 			MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
 		} while (!flag);
@@ -397,7 +398,7 @@ void* wait_recv_any_th(void *arg){
 		/* Receiving has started, synchronisation is no longer required, unlock */
 		pthread_spin_unlock(&(bridge->recv_lock));
 
-#else
+#else // if MPI_VERSION >= 3
 
 		/* Used for matching the detected incoming message when MPI_Imrecv() is invoked */
 		MPI_Message msg;
@@ -409,7 +410,6 @@ void* wait_recv_any_th(void *arg){
 			/* No incoming message, continue */
 			continue;
 		}
-
 
 		/* Used for retrieving the packet that the incoming MPI message contains */
 		Packet_t packet;
@@ -445,8 +445,6 @@ void* wait_recv_any_th(void *arg){
 
 			double start = sba_system.start;
 			printf("until starting send_th: %f \n", sba_system.thread_start - start);
-			printf("until start packing: %f\n", sba_system.start_sender_pack - start);
-			printf("until finish packing: %f\n", sba_system.end_sender_pack - start);
 			printf("until start sending: %f\n", sba_system.start_send - start);
 			printf("probe ack: %f\n", sba_system.probe_ack - start);
 			printf("until receiving: %f\n", end-start);
@@ -459,6 +457,8 @@ void* wait_recv_any_th(void *arg){
 		int to = (int) getReturn_to(getHeader(packet));
 
 		if (getPacket_type(header) == P_DRESP){
+
+			printf("Received DRESP\n");
 
 			int tag = create_tag(tag_dresp_data, return_to, to);
 			
@@ -487,57 +487,16 @@ void* wait_recv_any_th(void *arg){
 		packet = mkPacket(header, payload);
 
 		/* Send the packet */
-		sba_system.send(packet, tag_time_ack);
+		sba_system.send(packet, tag_default);
 		continue;
 
 
 #ifdef EVALUATE
 
-		int tag = status.MPI_TAG;
+		//int tag = status.MPI_TAG;
 
 		/* Check whether the packet is used for evaluating purposes */
-		if (tag == tag_time_send){
-			//printf("Rank %d: TAG_TIME_SEND RECEIVED\n", sba_system.get_rank()); // TODO: Delete
-
-			/* Find the node_id of the sender */
-			int return_to = (int) getTo(getHeader(packet));
-			int to = (int) getReturn_to(getHeader(packet));
-		
-			/* Add the start time in Word form to the payload */
-			Payload_t payload;
-			payload.push_back(packet.at(packet.size()-1));
-
-			/* Create the header of the GMCF packet. This function is part of the original GMCF code */
-			Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), to, return_to, 7 , 0);
-
-			/* Create the GMCF packet. This function is part of the original GMCF code */
-			packet = mkPacket(header, payload);
-
-			/* Send the packet */
-			sba_system.send_th(packet, tag_time_ack);
-
-			/* Deallocate the float array */
-			//TODO: Complete
-
-			/* Check for another incoming message */
-			continue;
-		}
-		else if (tag == tag_time_ack){
-			//printf("Rank %d: TAG_TIME_ACK RECEIVED\n", sba_system.get_rank()); // TODO: Delete
-
-			/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
-			double end = MPI_Wtime();
-
-			double start = sba_system.start;
-			printf("until starting send_th: %f \n", sba_system.thread_start - start);
-			printf("until start packing: %f\n", sba_system.start_sender_pack - start);
-			printf("until finish packing: %f\n", sba_system.end_sender_pack - start);
-			printf("until start sending: %f\n", sba_system.start_send - start);
-			printf("probe ack: %f\n", sba_system.probe_ack - start);
-			printf("until receiving: %f\n", end-start);
-			printf("RANK %d: START: %f END: %f TIME: %fsecs\n", sba_system.get_rank(), start, end, end-start);
-			continue;
-		}
+		//TODO: add evaluation code (from above)
 #endif // EVALUATE
 
 		/* Calculate the service_id of the Tile instance to receive the GMCF packet */
@@ -568,19 +527,19 @@ void* send_th_fcn(void *args) {
 	/* Pointer to the bridge that created this thread */
 	Bridge* bridge = parameters->bridge;
 
-	/* Pointer to the System instance that created the aforementioned Bridge */
+	/* The GPRM packet to be sent */
+	Packet_t packet = parameters->packet;
+
+	/* The tag of the MPI message to be sent */
+	int tag = parameters->tag;
+
+	/* Pointer to the System instance that created the Bridge */
 	System& sba_system = *((System*)bridge->sba_system_ptr);
 
 	sba_system.thread_start = MPI_Wtime(); //TODO: remove
 
 	/* Pointer to the communicator to be used for this operation */
 	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
-
-	/* The GPRM packet to be sent */
-	Packet_t packet = parameters->packet;
-
-	/* The tag of the MPI message to be sent */
-	int tag = parameters->tag;
 
 	/* the header of the GPRM packet to be sent */
 	Header_t header = getHeader(packet);
@@ -590,23 +549,6 @@ void* send_th_fcn(void *args) {
 
 	/* The MPI rank of the process to receive the packet */
 	int to_rank = (int) (dest-1)/ NSERVICES;
-
-
-	sba_system.start_sender_pack = MPI_Wtime();
-
-	/* If the GPRM packet is of type P_DRESP package the contents of the float array it points to along with the packet */
-	if (getPacket_type(header) == P_DRESP) {
-#ifdef VERBOSE
-		printf("Rank %d (Send): P_DRESP packet was detected\n", sba_system.get_rank()); //TODO: Remove
-#endif // VERBOSE
-		float *arr = (float*)packet.back();
-		packet = packDRespPacket(packet);
-		
-		/* Delete the dynamically allocated float array */
-		delete arr;
-	}
-
-	sba_system.end_sender_pack = MPI_Wtime(); //TODO: DELETE
 
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
@@ -626,9 +568,38 @@ void* send_th_fcn(void *args) {
 		MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
 	} while (!flag);
 
+	/* If the GPRM packet is of type P_DRESP send another message containing the float arrat that the packet has a pointer to */
+	if (getPacket_type(header) == P_DRESP) {
+
+		/* Get size of float array */
+		int data_size = getReturn_as(header); 
+
+		/* Get the pointer to the array */
+		void* ptr = (void *) packet.back();
+		float *arr = (float*)ptr;
+
+		/* Get node_id of the tile that initiated the send operation */
+		int sender_id = (int) getReturn_to(header);
+
+		/* Create the tag of the MPI message containing the float array */
+		tag = create_tag(tag_dresp_data, dest, sender_id);
+
+		/* Send the float array */
+		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag, *comm_ptr, &req);
+
+		/* Wait until the whole message is sent (this does not necessarily mean it was also received) */
+		do { 
+			MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+		} while (!flag);
+
+		/* Delete the dynamically allocated float array, it is no longer needed on this process */
+		delete arr;
+	}
+
 #ifdef VERBOSE
 	printf("Rank %d (Sent): Sent a packet to %d\n", sba_system.get_rank(), to_rank);
 #endif // VERBOSE
+
 
 	/* Remove the dynamically allocated bridge_packet_tag structure that was passed as an argument to this function */
 	delete parameters;
