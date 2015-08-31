@@ -200,6 +200,8 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* Flag that indicates the status of the send operation */
 	int flag;
 
+	printf("..........SENDER (%d): sending dresp (%d)\n",sba_system.get_rank(), (int) packet.at(3)); //TODO: remove
+
 	/* Wait until the whole message is sent */
 	do { 
 		MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
@@ -223,6 +225,8 @@ void Bridge::send(Packet_t packet, int tag) {
 
 		/* Send the float array */
 		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag, *comm_ptr, &req);
+
+		printf("==========SENDER (%d): sending dresp data\n", sba_system.get_rank()); //TODO: remove
 
 		/* Wait until the whole message is sent (this does not necessarily mean it was also received) */
 		do { 
@@ -427,10 +431,13 @@ void* wait_recv_any_th(void *arg){
 
 #endif // MPI_VERSION<3
 
+		printf("RECEIVER (%d): Probed a msg. Waiting to receive....\n", sba_system.get_rank()); //TODO: remove
+
 		/* Wait until the whole message is received */
 		do {
 			MPI_Test(&req, &flag, &status);
 		} while (!flag);
+
 
 #ifdef VERBOSE
 		int from_rank = (int) (getReturn_to(getHeader(packet))-1) / NSERVICES;
@@ -441,14 +448,24 @@ void* wait_recv_any_th(void *arg){
 		Header_t header = getHeader(packet);
 
 		if (getPacket_type(header) == P_TREQ) { // TODO: Mofify/remove?
+
+			printf("RECEIVER (%d): Got treq\n", sba_system.get_rank()); //TODO: remove
+
 			double end = MPI_Wtime();
 
 			double start = sba_system.start;
+#ifdef VERBOSE // TODO: What do?
 			printf("until starting send_th: %f \n", sba_system.thread_start - start);
 			printf("until start sending: %f\n", sba_system.start_send - start);
 			printf("probe ack: %f\n", sba_system.probe_ack - start);
 			printf("until receiving: %f\n", end-start);
-			printf("RANK %d: START: %f END: %f TIME: %fsecs\n", sba_system.get_rank(), start, end, end-start);
+#endif // VERBOSE
+			//printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); //TODO: uncomment?
+
+			sba_system.total_time += end - start;
+
+			/* The test is completed */
+			sba_system.testing_status=false; 
 			continue;
 
 		}
@@ -456,9 +473,11 @@ void* wait_recv_any_th(void *arg){
 		int return_to = (int) getTo(getHeader(packet));
 		int to = (int) getReturn_to(getHeader(packet));
 
+
 		if (getPacket_type(header) == P_DRESP){
 
-			printf("Received DRESP\n");
+			printf("..........RECEIVER (%d): Got dresp \n", sba_system.get_rank()); //TODO: remove
+
 
 			int tag = create_tag(tag_dresp_data, return_to, to);
 			
@@ -474,11 +493,13 @@ void* wait_recv_any_th(void *arg){
 				MPI_Test(&req, &flag, &status);
 			} while (!flag);
 
+			printf("==========RECEIVER (%d): Got dresp data\n", sba_system.get_rank()); //TODO: remove
+
 		}
 	
 		/* Add the start time in Word form to the payload */
 		Payload_t payload;
-		payload.push_back((Word)0);
+		payload.push_back((Word)999);
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
 		header = mkHeader(P_TREQ, 2, 3, payload.size(), to, return_to, 7 , 0);

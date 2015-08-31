@@ -36,9 +36,17 @@ class System: public Base::System {
 		pthread_spinlock_t killed_threads_lock; 
 
 	#ifdef EVALUATE
+		
+			/* indicates whether a test is underway */
+			bool testing_status;
+	#endif // EVALUATE
+
+	#ifdef EVALUATE
 		/* double indicating the time elapsed since an arbitrary point in the past. Used for calculating the time it takes for a 
 		 * send() operation */
-		double start;
+		double start; //TODO: change name?
+
+		double total_time;
 	#endif // EVALUATE
 
 	#ifdef VERBOSE
@@ -66,6 +74,13 @@ double probe_ack;
 		/* Constructor used when BRIDGE is defined */
 		System(int r_, int c_): rows(r_), cols(c_), bridge_pos(-1), active(true), killed_threads(0){
 
+	#ifdef EVALUATE
+			
+			/* No test is underway */
+			testing_status = false;
+			start = 0;
+			total_time = 0;
+	#endif // EVALUATE
 
 			/* Thread support level */
 			int tsl;

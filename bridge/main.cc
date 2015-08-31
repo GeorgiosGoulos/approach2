@@ -11,6 +11,8 @@
 #include <iostream>
 #endif //VERBOSE
 
+#include <unistd.h> // TODO: remove
+
 #define SENDER 0 // rank of sender
 #define D_SIZE 2 // size of data array
 
@@ -40,7 +42,7 @@ void stencil_operation(System& sba_system);
  * @param sba_system the System instance
  * @param size_of_array the size of float array to be sent in bytes
  */
-void test_time_dresp(System& sba_system, int size_of_array);
+void test_time_dresp(System& sba_system, int size_of_array, int num_packets=1);
 #endif // EVALUATE
 
 
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
-	test_time_dresp(sba_system, 2000000);
+	test_time_dresp(sba_system, 2000000, 20);
 #endif // EVALUATE
 	
 	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
@@ -174,58 +176,66 @@ void send_packet_no_dresp(System& sba_system){
 }
 
 #ifdef EVALUATE
-void test_time_dresp(System& sba_system, int size_of_array){
+void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 
 	if (sba_system.get_rank() == 0) {
 
 		int number_of_floats = size_of_array/sizeof(float);
 
-#ifdef VERBOSE // TODO: Uncomment
+//#ifdef VERBOSE // TODO: Uncomment
 		stringstream ss;
-		ss << "Rank : " << sba_system.get_rank() <<" "<< number_of_floats << " float(s) to be sent (Approx. " << size_of_array << " bytes)\n";
+		ss << "Rank " << sba_system.get_rank() << ": sending " << num_packets << " packet(s) with ";
+		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes) each\n";
 		cout << ss.str();
-#endif // VERBOSE
+//#endif // VERBOSE
 
-		/* Create a float array. the GMCF packet will have a pointer to it */
-		float *arr = new float[number_of_floats];
+		for (int i=0;i< num_packets; i++) {
 
-		/* Add elements to the float array */
-		for (int i = 0; i < number_of_floats; i++){
-			*(arr + i) = 0.5 + i;
+			printf("No.%d packet will be sent...\n", i); // TODO: Delete
+
+			/* Create a float array. the GMCF packet will have a pointer to it */
+			float *arr = new float[number_of_floats];
+
+			/* Add elements to the float array */
+			for (int j = 0; j < number_of_floats; j++){
+				*(arr + j) = 0.5 + j;
+			}
+
+			/* Add Word elements to the payload */
+			Payload_t payload;
+			payload.push_back((Word)i);
+			payload.push_back((Word)arr);
+	
+			/* node_id of sending tile */
+			Word return_to_field = NSERVICES * sba_system.get_rank() + 1;
+
+			/* node_id of the receiving tile */
+			Word to_field = return_to_field + NSERVICES;
+
+			/* Create the header of the GMCF packet. This function is part of the original GMCF code */
+			Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 , number_of_floats);
+
+			/* Create the GMCF packet. This function is part of the original GMCF code */
+			Packet_t packet = mkPacket(header, payload);
+
+			/* Add the packet in the TX FIFO of the sending tile */
+			//printf("%d - %d\n", sba_system.get_rank(), (int) return_to_field); //TODO: Remove
+			sba_system.nodes[NSERVICES * sba_system.get_rank() + 1]->transceiver->tx_fifo.push_back(packet);
+
+			/* Update the status variable of System to true, indicating that a test is underway */
+			sba_system.testing_status = true;
+
+			/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
+			sba_system.start = MPI_Wtime();
+
 		}
 
-		/* Add Word elements to the payload */
-		Payload_t payload;
-		payload.push_back((Word)arr);
-	
-		/* node_id of sending tile */
-		Word return_to_field = NSERVICES * sba_system.get_rank() + 1;
-
-		/* node_id of the receiving tile */
-		Word to_field = return_to_field + NSERVICES;
-
-		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
-		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 , number_of_floats);
-
-		/* Create the GMCF packet. This function is part of the original GMCF code */
-		Packet_t packet = mkPacket(header, payload);
-
-		/* Add the packet in the TX FIFO of the sending tile */
-		//printf("%d - %d\n", sba_system.get_rank(), (int) return_to_field); //TODO: Remove
-		sba_system.nodes[NSERVICES * sba_system.get_rank() + 1]->transceiver->tx_fifo.push_back(packet);
-
-		/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
-		double start = MPI_Wtime();
-		sba_system.start = start;
-#ifdef VERBOSE
-	ss.str("");
-	ss << "MPI_Wtime() (start): " << start << "seconds\n";
-	cout << ss.str();
-#endif // VERBOSE
-
 		/* Send the packet */
-		//sba_system.send_th(packet, tag_time_send); //TODO: keep?
 		sba_system.nodes[NSERVICES * sba_system.get_rank()+1]->transceiver->transmit_packets();
+
+		//printf("Rank %d: It took an average of %f for each packet to be sent and an ack to be received (%d packets sent in total)\n", 
+		//sba_system.get_rank(), sba_system.total_time/num_packets, num_packets);
+
 	}
 
 }

@@ -42,7 +42,9 @@ void Transceiver::transmit_packets()  {
                 	// dest is generally not the same as the index in the nodes array.!
                     sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 #else // ifdef BRIDGE
+	#ifdef VERBOSE
 					cout <<"WARNING: ad-hoc dest computation (MPI): "<<((service_id-1) % (sba_system.get_size()*NSERVICES))+1<< " (from "<<service_id<<")\n";
+	#endif // VERBOSE
 					ServiceAddress dest = ((service_id-1) % (sba_system.get_size()*NSERVICES))+1;
 					int dest_rank = (int) (dest -1) / NSERVICES;
 					if (dest_rank == sba_system.get_rank()){
