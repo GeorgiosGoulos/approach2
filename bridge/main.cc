@@ -11,8 +11,6 @@
 #include <iostream>
 #endif //VERBOSE
 
-#include <unistd.h> // TODO: remove
-
 #define SENDER 0 // rank of sender
 #define D_SIZE 2 // size of data array
 
@@ -89,7 +87,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
-	test_time_dresp(sba_system, 2000000, 20);
+	test_time_dresp(sba_system, 200000, 200);
 #endif // EVALUATE
 	
 	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
@@ -191,7 +189,9 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 
 		for (int i=0;i< num_packets; i++) {
 
-			printf("No.%d packet will be sent...\n", i); // TODO: Delete
+//#ifdef VERBOSE // TODO: Uncomment
+			printf("Creating and sending packet No.%d...\n", i);
+//#endif // VERBOSE
 
 			/* Create a float array. the GMCF packet will have a pointer to it */
 			float *arr = new float[number_of_floats];
@@ -222,19 +222,27 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 			//printf("%d - %d\n", sba_system.get_rank(), (int) return_to_field); //TODO: Remove
 			sba_system.nodes[NSERVICES * sba_system.get_rank() + 1]->transceiver->tx_fifo.push_back(packet);
 
-			/* Update the status variable of System to true, indicating that a test is underway */
+			/* Update the status variable of System to 1, indicating that a test is underway */
 			sba_system.testing_status = true;
 
 			/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
 			sba_system.start = MPI_Wtime();
 
+#ifdef VERBOSE
+			printf("No.%d: Transmitting  packet...\n", i);
+#endif // VERBOSE
+
+			/* Send the packet */
+			sba_system.nodes[NSERVICES * sba_system.get_rank()+1]->transceiver->transmit_packets();
+
+			/* wait until the results are in */
+			while (sba_system.testing_status) {}
+
+
 		}
 
-		/* Send the packet */
-		sba_system.nodes[NSERVICES * sba_system.get_rank()+1]->transceiver->transmit_packets();
-
-		//printf("Rank %d: It took an average of %f for each packet to be sent and an ack to be received (%d packets sent in total)\n", 
-		//sba_system.get_rank(), sba_system.total_time/num_packets, num_packets);
+		printf("Rank %d: Sent %d packets it took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used\n", 
+		sba_system.get_rank(), num_packets, sba_system.total_time/num_packets, NBRIDGES);
 
 	}
 

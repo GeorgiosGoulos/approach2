@@ -200,7 +200,7 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* Flag that indicates the status of the send operation */
 	int flag;
 
-	printf("..........SENDER (%d): sending dresp (%d)\n",sba_system.get_rank(), (int) packet.at(3)); //TODO: remove
+
 
 	/* Wait until the whole message is sent */
 	do { 
@@ -226,13 +226,13 @@ void Bridge::send(Packet_t packet, int tag) {
 		/* Send the float array */
 		MPI_Isend(arr, data_size, MPI_FLOAT, to_rank, tag, *comm_ptr, &req);
 
-		printf("==========SENDER (%d): sending dresp data\n", sba_system.get_rank()); //TODO: remove
+		
 
 		/* Wait until the whole message is sent (this does not necessarily mean it was also received) */
 		do { 
 			MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-		} while (!flag);
 
+		} while (!flag);
 		/* Delete the dynamically allocated float array, it is no longer needed on this process */
 		delete arr;
 	}
@@ -431,7 +431,6 @@ void* wait_recv_any_th(void *arg){
 
 #endif // MPI_VERSION<3
 
-		printf("RECEIVER (%d): Probed a msg. Waiting to receive....\n", sba_system.get_rank()); //TODO: remove
 
 		/* Wait until the whole message is received */
 		do {
@@ -449,7 +448,6 @@ void* wait_recv_any_th(void *arg){
 
 		if (getPacket_type(header) == P_TREQ) { // TODO: Mofify/remove?
 
-			printf("RECEIVER (%d): Got treq\n", sba_system.get_rank()); //TODO: remove
 
 			double end = MPI_Wtime();
 
@@ -476,7 +474,7 @@ void* wait_recv_any_th(void *arg){
 
 		if (getPacket_type(header) == P_DRESP){
 
-			printf("..........RECEIVER (%d): Got dresp \n", sba_system.get_rank()); //TODO: remove
+
 
 
 			int tag = create_tag(tag_dresp_data, return_to, to);
@@ -484,6 +482,7 @@ void* wait_recv_any_th(void *arg){
 			flag = false;
 			while (!flag){
 				MPI_Improbe(MPI_ANY_SOURCE, tag, *comm_ptr, &flag, &msg, &status);
+
 			}
 			MPI_Get_count(&status, MPI_FLOAT, &recv_size);
 			float *arr = new float[recv_size];
@@ -491,9 +490,10 @@ void* wait_recv_any_th(void *arg){
 
 			do {
 				MPI_Test(&req, &flag, &status);
+
 			} while (!flag);
 
-			printf("==========RECEIVER (%d): Got dresp data\n", sba_system.get_rank()); //TODO: remove
+
 
 		}
 	
