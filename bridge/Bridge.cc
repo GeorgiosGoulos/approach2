@@ -152,20 +152,10 @@ Packet_t unpackDRespPacket(Packet_t packet) {
 void* stencil_operation_th(void *args);
 
 /**
- * A function that will be executed by a thread which will initiate a neighboursreduce operation
- * @param args a void pointer that points to a dynamically allocated bridge_packets structure
- */
-void* neighboursreduce_operation_th(void *args);
-
-/**
  * A function that will be executed by a thread which will initiate a send operation
  * @param args a void pointer that points to a dynamically allocated bridge_packet_tag structure
  */
 void* send_th_fcn(void *args);
-
-void Bridge::send(int target, Packet_t packet, int tag) { //TODO: Remove
-}
-
 
 // Used for sending GPRM packets through MPI messages to other MPI processes 
 void Bridge::send(Packet_t packet, int tag) {
@@ -173,7 +163,13 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* Reference to the System instance that created the bridge */
 	System& sba_system = *((System*)this->sba_system_ptr);
 
-	sba_system.thread_start = MPI_Wtime(); //TODO: remove
+#ifdef EVALUATE
+	#ifdef VERBOSE
+	/* Used for measuring the time it took to invoke the Bridge::send() method */
+	sba_system.fcn_thread_start = MPI_Wtime();
+	#endif// VERBOSE
+
+#endif //EVALUATE
 
 	/* Pointer to the communicator to be used for this operation */
 	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
@@ -189,10 +185,6 @@ void Bridge::send(Packet_t packet, int tag) {
 
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
-
-
-	//TODO: REMOVE
-	sba_system.start_send = MPI_Wtime();
 
 	/* Send the MPI message */
 	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, to_rank, tag, *comm_ptr, &req);
@@ -277,7 +269,7 @@ std::vector<int> Bridge::get_neighbours(){
 }
 
 // Initiates a stencil operation
-void Bridge::stencil(std::vector<Packet_t> packet_list){
+/*void Bridge::stencil(std::vector<Packet_t> packet_list){ // TODO: Remove?
 
 #ifdef VERBOSE
 	stringstream ss;
@@ -290,14 +282,14 @@ void Bridge::stencil(std::vector<Packet_t> packet_list){
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); // TODO: remove? detach?
 
-	/* Create a bridge_packets_parameters element which will be passed to a thread as an argument */
+	// Create a bridge_packets_parameters element which will be passed to a thread as an argument 
 	struct bridge_packets parameters_ = {
 		this,
 		packet_list
 	};
 
-	/* Since pthreads take only args of type void* store the struct on the free store and pass a pointer to the thread 
-	 * The free store is used so that the thread can have access to the struct */
+	// Since pthreads take only args of type void* store the struct on the free store and pass a pointer to the thread 
+	// The free store is used so that the thread can have access to the struct 
 	struct bridge_packets *parameters = new struct bridge_packets(parameters_);
 	int rc = pthread_create(&thread, &attr, stencil_operation_th, (void *) parameters);
 	if (rc) {
@@ -305,34 +297,7 @@ void Bridge::stencil(std::vector<Packet_t> packet_list){
 		exit(1);
 	}
 	pthread_attr_destroy(&attr);	
-}
-
-
-void Bridge::neighboursreduce(std::vector<Packet_t> packet_list) {
-
-#ifdef VERBOSE
-	stringstream ss;
-	ss << "Rank " << rank << "(nr): Scattering " << packet_list.size() << " packet(s) among " << neighbours.size() << " neighbour(s)\n";
-	cout << ss.str();
-#endif // VERBOSE
-
-	pthread_t thread;
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	struct bridge_packets parameters_ = {
-		this,
-		packet_list
-	};
-	struct bridge_packets *parameters = new struct bridge_packets(parameters_);
-	int rc = pthread_create(&thread, &attr, neighboursreduce_operation_th, (void *) parameters);
-	if (rc) {
-		printf("Rank %d: neighboursreduce thread could not be created. Exiting program...\n", rank);
-	}
-	pthread_attr_destroy(&attr);	
-	//void *th_status;
-	//rc = pthread_join(thread, &th_status); // No need to wait AS LONG AS IT WORKS
-}
+}*/
 
 // The function executed by a different thread, used for listening for incoming MPI messages
 // The thread is created in the constructor of Bridge
@@ -379,11 +344,6 @@ void* wait_recv_any_th(void *arg){
 			/* Incoming message to be handled by non-receiving thread, unlock and continue*/
 			pthread_spin_unlock(&(bridge->recv_lock));
 			continue; // Let the stencil_operation_th() function do this work
-		}
-		if (tag == tag_neighboursreduce_reduce) {
-			/* Incoming message to be handled by non-receiving thread, unlock and continue*/
-			pthread_spin_unlock(&(bridge->recv_lock));
-			continue; // Let the neighboursreduce_operation_th() function do this work
 		}
 
 		Packet_t packet;
@@ -446,18 +406,25 @@ void* wait_recv_any_th(void *arg){
 
 		Header_t header = getHeader(packet);
 
-		if (getPacket_type(header) == P_TREQ) { // TODO: Mofify/remove?
+#ifdef EVALUATE
+
+		/* Check if the packet received is of type DACK. This is used as an ack packet for evaluation purposes */
+		if (getPacket_type(header) == P_DACK) { 
 
 
 			double end = MPI_Wtime();
 
-			double start = sba_system.start;
-#ifdef VERBOSE // TODO: What do?
-			printf("until starting send_th: %f \n", sba_system.thread_start - start);
-			printf("until start sending: %f\n", sba_system.start_send - start);
-			printf("probe ack: %f\n", sba_system.probe_ack - start);
+			double start = sba_system.start_time;
+
+	/* These times have meaning only for the test_time_dresp() test and should be ignored otherwise */
+	#ifdef VERBOSE 
+		#ifdef THREADED_SEND
+			printf("until creating the sending thread: %f \n", sba_system.send_thread_start - start);
+		#else
+			printf("until invoking the Bridge::send() method: %f \n", sba_system.send_fcn_start - start);
+		#endif // THREADED_SEND
 			printf("until receiving: %f\n", end-start);
-#endif // VERBOSE
+	#endif // VERBOSE
 			printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); //TODO: uncomment?
 
 			sba_system.total_time += end - start;
@@ -465,17 +432,14 @@ void* wait_recv_any_th(void *arg){
 			/* The test is completed */
 			sba_system.testing_status=false; 
 			continue;
-
 		}
+#endif //EVALUATE
 
 		int return_to = (int) getTo(getHeader(packet));
 		int to = (int) getReturn_to(getHeader(packet));
 
 
 		if (getPacket_type(header) == P_DRESP){
-
-
-
 
 			int tag = create_tag(tag_dresp_data, return_to, to);
 			
@@ -496,28 +460,29 @@ void* wait_recv_any_th(void *arg){
 
 
 		}
-	
+
+#ifdef EVALUATE	
+		/* If the DRESP packet detected was used for evaluation purposes, don't store it. Instead, send a DACK packet back and keep 
+		 * listening for messages */
+
 		/* Add the start time in Word form to the payload */
 		Payload_t payload;
 		payload.push_back((Word)999);
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
-		header = mkHeader(P_TREQ, 2, 3, payload.size(), to, return_to, 7 , 0);
+		header = mkHeader(P_DACK, 2, 3, payload.size(), to, return_to, 7 , 0);
 
 		/* Create the GMCF packet. This function is part of the original GMCF code */
 		packet = mkPacket(header, payload);
 
 		/* Send the packet */
+	#ifdef THREADED_SEND
+		sba_system.send_th(packet, tag_default);
+	#else
 		sba_system.send(packet, tag_default);
+	#endif // THREADED_SEND
 		continue;
 
-
-#ifdef EVALUATE
-
-		//int tag = status.MPI_TAG;
-
-		/* Check whether the packet is used for evaluating purposes */
-		//TODO: add evaluation code (from above)
 #endif // EVALUATE
 
 		/* Calculate the service_id of the Tile instance to receive the GMCF packet */
@@ -557,7 +522,12 @@ void* send_th_fcn(void *args) {
 	/* Pointer to the System instance that created the Bridge */
 	System& sba_system = *((System*)bridge->sba_system_ptr);
 
-	sba_system.thread_start = MPI_Wtime(); //TODO: remove
+#ifdef EVALUATE
+	#ifdef VERBOSE
+	/* Used for measuring the time it took to start the sending thread */
+	sba_system.send_thread_start = MPI_Wtime();
+	#endif // VERBOSE
+#endif // EVALUATE
 
 	/* Pointer to the communicator to be used for this operation */
 	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
@@ -573,10 +543,6 @@ void* send_th_fcn(void *args) {
 
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
-
-
-	//TODO: REMOVE
-	sba_system.start_send = MPI_Wtime();
 
 	/* Send the MPI message */
 	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, to_rank, tag, *comm_ptr, &req);
@@ -629,7 +595,7 @@ void* send_th_fcn(void *args) {
 }
 
 //A function that will be executed by a thread which will initiate a stencil operation
-void* stencil_operation_th(void *args){
+/*void* stencil_operation_th(void *args){ //TODO: Remove?
 
 	//Timeit
 	double start_time = MPI_Wtime();
@@ -680,9 +646,4 @@ void* stencil_operation_th(void *args){
 	printf("Rank %d: STENCIL Thread exiting... (%fs)\n", bridge->rank, MPI_Wtime() - start_time);
 	delete parameters; // Free the space allocated on the heap
 	pthread_exit(NULL);
-}
-
-
-void *neighboursreduce_operation_th(void *args){ // TODO: Remove
-	pthread_exit(NULL);
-}
+} */

@@ -44,9 +44,18 @@ class System: public Base::System {
 	#ifdef EVALUATE
 		/* double indicating the time elapsed since an arbitrary point in the past. Used for calculating the time it takes for a 
 		 * send() operation */
-		double start; //TODO: change name?
+		double start_time; //TODO: change name?
 
 		double total_time;
+
+		#ifdef THREADED_SEND
+		/* Used for measuring the time it took to start the sending thread */
+		double send_thread_start;
+		#else
+		/* Used for measuring the time it took to invoke the Bridge::send() method */
+		double send_fcn_start;
+		#endif // THREADED_SEND
+
 	#endif // EVALUATE
 
 	#ifdef VERBOSE
@@ -55,14 +64,6 @@ class System: public Base::System {
 	#endif // VERBOSE
 
 
-//TODO: REMOVE
-double start_send;
-double start_sender_pack;
-double end_sender_pack;
-double start_receiver_unpack;
-double end_receiver_unpack;
-double thread_start;
-double probe_ack;
 
 
 
@@ -78,7 +79,7 @@ double probe_ack;
 			
 			/* No test is underway */
 			testing_status = false;
-			start = 0;
+			start_time = 0;
 			total_time = 0;
 	#endif // EVALUATE
 

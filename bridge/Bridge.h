@@ -96,14 +96,6 @@ class Bridge {
 		 * @param tag The tag of the MPI message to be sent
 		 */
 		void send(Packet_t packet, int tag=tag_default);
-
-		/**
-		 * Used for sending GPRM packets through MPI messages to other MPI processes (used for debugging purposes)
-		 * @param target The MPI rank of the process to receive the message
-		 * @param packet A GPRM packet
-		 * @param tag The tag of the MPI message to be sent
-		 */
-		void send(int target, Packet_t packet, int tag=tag_default); // TODO: Remove
 		
 		/**
 		 * Initiates a stencil operation
@@ -111,11 +103,6 @@ class Bridge {
 		 */
 		void stencil(std::vector<Packet_t> packet_list);
 
-		/**
-		 * Initiates a neighboursreduce operation
-		 * @param packet_list A vector containing GPRM packets to be scattered among the neighbours // TODO Change
-		 */
-		void neighboursreduce(std::vector<Packet_t> packet_list);	// Threaded	
 
 };
 

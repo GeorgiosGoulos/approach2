@@ -3,7 +3,8 @@ COLS=2 # Number of processes per column
 TOTAL=$(($ROWS*$COLS)) # Total number of processes
 
 # BRIDGE: Essential for executing this program successfully, required if bridges are to be used in GMCF
-# EVALUATE: Used for performing evaluation testing
+# THREADED_SEND: Used when the sending threads should be used instead of the Bridhe::send() method
+# EVALUATE: Used for performing evaluation testing. Should not be used during actual deployment
 # MPI_TOPOLOGY_OPT: Used when the potentially optimised cartesian topology should be utilised
 # VERBOSE: Print messages that indicate the operations taking place
 
