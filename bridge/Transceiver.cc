@@ -58,8 +58,8 @@ void Transceiver::transmit_packets()  {
 					cout << "Rank " << sba_system.get_rank() << " (transc): sending packet to " << dest_rank << " (" << dest << ","<<service_id<<")\n";
 	#endif // VERBOSE
 
-						//sba_system.send_th(packet);
-						sba_system.send(packet);
+						sba_system.send_th(packet);
+						//sba_system.send(packet);
 					}
 #endif // BRIDGE
                 }

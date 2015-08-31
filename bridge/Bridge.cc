@@ -458,7 +458,7 @@ void* wait_recv_any_th(void *arg){
 			printf("probe ack: %f\n", sba_system.probe_ack - start);
 			printf("until receiving: %f\n", end-start);
 #endif // VERBOSE
-			//printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); //TODO: uncomment?
+			printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); //TODO: uncomment?
 
 			sba_system.total_time += end - start;
 

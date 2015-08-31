@@ -87,7 +87,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
-	test_time_dresp(sba_system, 200000, 200);
+	test_time_dresp(sba_system, 200000, 10);
 #endif // EVALUATE
 	
 	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
