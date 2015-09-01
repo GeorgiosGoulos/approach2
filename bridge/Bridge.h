@@ -23,12 +23,6 @@ void *wait_recv_any_th(void* args);
 class Bridge {
 	public:
 
-		/* A pointer to the System instance that created this Bridge */
-		Base::System* sba_system_ptr;
-
-		/* Handle to the thread that will listen for incoming MPI messages */
-		pthread_t recv_thread;
-
 #if  MPI_VERSION<3
 		/* A lock used to ensure a receiving threads that probes a packet also receives it*/
 		pthread_spinlock_t recv_lock;
@@ -98,6 +92,12 @@ class Bridge {
 		 */
 		int get_rank();
 
+		/**
+		 * Returns a pointer to the System instance
+		 * @return the sba_system_ptr pointer
+		 */
+		Base::System* get_system_ptr();
+
 	private:
 		/* Stream used for printing messages */
 		stringstream ss;
@@ -105,8 +105,14 @@ class Bridge {
 		/* A vector containing all the logical neighbours of this MPI node */
 		std::vector<int> neighbours;
 
+		/* A pointer to the System instance that created this Bridge */
+		Base::System* sba_system_ptr;
+
 		/* The MPI rank of this process */
 		int rank;
+
+		/* Handle to the thread that will listen for incoming MPI messages */
+		pthread_t recv_thread;
 
 };
 

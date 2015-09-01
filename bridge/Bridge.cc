@@ -6,7 +6,7 @@
 #include <algorithm> //find()
 #include <pthread.h>
 #include "Packet.h"
-
+#include "Base/System.h"
 #include "System.h"
 
 using namespace std;
@@ -135,6 +135,10 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* If the GPRM packet is of type P_DRESP send another message containing the float arrat that the packet has a pointer to */
 	if (getPacket_type(header) == P_DRESP) {
 
+#ifdef VERBOSE
+		printf("Rank %d: Sending float array...\n", sba_system.get_rank());
+#endif // VERBOSE
+
 		/* Get size of float array */
 		int data_size = getReturn_as(header); 
 
@@ -157,10 +161,15 @@ void Bridge::send(Packet_t packet, int tag) {
 		} while (!flag);
 		/* Delete the dynamically allocated float array, it is no longer needed on this process */
 		delete [] arr;
+
+#ifdef VERBOSE
+		printf("Rank %d: Float array sent!\n", sba_system.get_rank());
+#endif // VERBOSE
+
 	}
 
 #ifdef VERBOSE
-	printf("Rank %d (Sent): Sent a packet to %d\n", sba_system.get_rank(), to_rank);
+	printf("Rank %d (Sent): Sent a packet to %d\n", get_rank(), to_rank);
 #endif // VERBOSE
 	
 }
@@ -205,6 +214,11 @@ int Bridge::get_rank(){
 	return rank;
 }
 
+// Returns a pointer to the System instance
+Base::System* Bridge::get_system_ptr(){
+	return sba_system_ptr;
+}
+
 // The function to be executed in a different thread, used for listening for incoming MPI messages
 // The thread is created in the constructor of Bridge
 void* wait_recv_any_th(void *arg){
@@ -212,7 +226,7 @@ void* wait_recv_any_th(void *arg){
 	MPI_Status status;
 
 	/* Reference to the System instance */
-	System& sba_system = *((System*)bridge->sba_system_ptr);
+	System& sba_system = *((System*)bridge->get_system_ptr());
 
 	/* Pointer to the communicator */
 	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
@@ -335,8 +349,6 @@ void* wait_recv_any_th(void *arg){
 			printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); 
 	#endif // VERBOSE
 
-			//printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start);  //TODO: Remove (it's above)
-
 			sba_system.end_time += end - start;
 
 			/* The test is completed */
@@ -347,6 +359,9 @@ void* wait_recv_any_th(void *arg){
 
 		/* Get node_id of receiver (stored on the packet header) */
 		int receiver_node_id = (int) getTo(getHeader(packet));
+
+		/* Remainder of division with (Number_of_MPI_Processes * NSERVICES) in case dest is larger */
+		receiver_node_id = ((getTo(header)-1) % (sba_system.get_size()*NSERVICES))+1;
 
 		/* Get node_id of sender (stored on the packet header) */
 		int sender_node_id = (int) getReturn_to(getHeader(packet));
@@ -359,6 +374,10 @@ void* wait_recv_any_th(void *arg){
 			/* Create the tag that the expected MPI message will have. It is a combination of the sender ID, receiver ID and the
 			 * type of the tag (tag_dresp_data) */
 			int tag = create_tag(tag_dresp_data, receiver_node_id, sender_node_id);
+
+#ifdef VERBOSE
+			printf("Rank %d: Waiting for a float array...\n", sba_system.get_rank());
+#endif // VERBOSE
 			
 #if MPI_VERSION<3
 
@@ -401,6 +420,9 @@ void* wait_recv_any_th(void *arg){
 #endif // MPI_VERSION<3
 
 			/* At this point the float array has been received */
+#ifdef VERBOSE
+			printf("Rank %d: Float array received!\n", sba_system.get_rank());
+#endif // VERBOSE
 		}
 
 #ifdef EVALUATE	
@@ -460,7 +482,7 @@ void* send_th_fcn(void *args) {
 	int tag = parameters->tag;
 
 	/* Pointer to the System instance that created the Bridge */
-	System& sba_system = *((System*)bridge->sba_system_ptr);
+	System& sba_system = *((System*)bridge->get_system_ptr());
 
 #ifdef EVALUATE
 	#ifdef VERBOSE
@@ -498,6 +520,10 @@ void* send_th_fcn(void *args) {
 	/* If the GPRM packet is of type P_DRESP send another message containing the float arrat that the packet has a pointer to */
 	if (getPacket_type(header) == P_DRESP) {
 
+#ifdef VERBOSE
+		printf("Rank %d: Sending float array...\n", sba_system.get_rank());
+#endif // VERBOSE
+
 		/* Get size of float array */
 		int data_size = getReturn_as(header); 
 
@@ -520,6 +546,10 @@ void* send_th_fcn(void *args) {
 		} while (!flag);
 		/* Delete the dynamically allocated float array, it is no longer needed on this process */
 		delete [] arr;
+
+#ifdef VERBOSE
+		printf("Rank %d: Float array sent!\n", sba_system.get_rank());
+#endif // VERBOSE
 	}
 
 #ifdef VERBOSE

@@ -30,7 +30,7 @@ typedef MemAddress ServiceAddress;
 #ifdef BRIDGE
 
 /* Indicates the number of bridges to be created in each MPI node */
-#define NBRIDGES 1 
+#define NBRIDGES 3
 
 typedef uint8_t tag_t; // should not be larger than 4 bits (0 - 15)
 typedef uint16_t receiver_t; // node_id of the receiving tile, should not be larger than 14 bits ( 1 - 16383, 0 is not used as a node_id)

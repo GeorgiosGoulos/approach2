@@ -44,14 +44,14 @@ void Transceiver::transmit_packets()  {
 					int dest_rank = (int) (dest -1) / NSERVICES;
 					if (dest_rank == sba_system.get_rank()){
 	#ifdef VERBOSE
-					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to self ("<<service_id<<")\n";						
+					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to a tile on the same MPI node \n";
 	#endif // VERBOSE
 					/* Receiver in same node -> no use of bridge required */
 					sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 					}
 					else {
 	#ifdef VERBOSE
-					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to " << dest_rank << " (" << dest << ","<<service_id<<")\n";
+					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to a different MPI node\n";
 	#endif // VERBOSE
 
 	/* Send the packet using a bridge */

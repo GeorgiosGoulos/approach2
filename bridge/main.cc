@@ -76,17 +76,17 @@ int main(int argc, char *argv[]){
 #endif //VERBOSE
 
 	/* TEST - mkHeader, mkPacket, P_DRESP */
-	//send_packet_dresp(sba_system);
+	send_packet_dresp(sba_system);
 
 	/* TEST - mkHeader, mkPacket, no P_DRESP */	
 	//send_packet_no_dresp(sba_system);
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for n DRESP packets to be sent AND an ack packet to be sent and retrieved */
-	test_time_dresp(sba_system, 200000, 1000);
+	//test_time_dresp(sba_system, 200000, 1000);
 
 	/* EVALUATION - time it takes for all the tiles on a node to send 1 packet to a tile on another node */
-	//test_all_tiles_in_node_send(sba_system, 200000);
+	test_all_tiles_in_node_send(sba_system, 200000);
 	
 #endif // EVALUATE
 	
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]){
 // Tests the transmission of GMCF packets of type P_DRESP to other MPI processes
 void send_packet_dresp(System& sba_system){
 
-	if (sba_system.get_rank() == SENDER) {
+	if (sba_system.get_rank() == 0) {
 
 		/* Create a float array. the GMCF packet will have a pointer to it */
 		float *arr = new float[D_SIZE];
@@ -115,7 +115,7 @@ void send_packet_dresp(System& sba_system){
 		Word to_field = 29;
 
 		/* node_id of sending tile, arbitrary value based on the value of SENDER */
-		Word return_to_field = 6;
+		Word return_to_field = 2;
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
 		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7, D_SIZE);
@@ -123,9 +123,27 @@ void send_packet_dresp(System& sba_system){
 		/* Create the GMCF packet. This function is part of the original GMCF code */
 		Packet_t packet = mkPacket(header, payload);
 
-		/* Create a second GMCF packet. These functions are part of the original GMCF code */
-		header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
-		Packet_t packet2 = mkPacket(header, payload);
+		/* Create a second GMCF packet */
+		float *arr2 = new float[D_SIZE];
+		for (int i = 0; i < D_SIZE; i++){
+			*(arr2 + i) = 0.7 + i;
+		}
+
+		/* Add some Word elements to the payload */
+		Payload_t payload2;
+		payload2.push_back((Word)1);
+		payload2.push_back((Word)2);
+		payload2.push_back((Word)arr2);
+
+		/* node_id of the receiving tile, arbitrary value based on the value of SENDER */
+		to_field = 126;
+
+		/* node_id of sending tile, arbitrary value based on the value of SENDER */
+		return_to_field = 2;
+
+
+		header = mkHeader(P_DRESP, 2, 3, payload2.size(), to_field, return_to_field, 7 ,D_SIZE);
+		Packet_t packet2 = mkPacket(header, payload2);
 
 		/* Add the packets in the TX FIFO of the sending tile */
 		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
@@ -229,21 +247,20 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 			/* Update the status variable of System to 1, indicating that a test is underway */
 			sba_system.testing_status = true;
 
-			/* Call MPI_Wtime(), which returns the time (in seconds) elapsed since an arbitrary point in the past */
-			sba_system.start_time = MPI_Wtime();
-
 #ifdef VERBOSE
 			ss.str("");
 			ss << "No." << i << ": Packet ready to be transmitted...\n";
 			cout << ss.str();
 #endif // VERBOSE
 
+			/* Call MPI_Wtime(), which returns the time (in seconds) elapsed since an arbitrary point in the past */
+			sba_system.start_time = MPI_Wtime();
+
 			/* Send the packet */
 			sba_system.nodes[NSERVICES * sba_system.get_rank()+1]->transceiver->transmit_packets();
 
 			/* wait until the results are in */
 			while (sba_system.testing_status) {}
-
 
 		}
 
