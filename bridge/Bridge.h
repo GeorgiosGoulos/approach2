@@ -26,12 +26,6 @@ class Bridge {
 		/* A pointer to the System instance that created this Bridge */
 		Base::System* sba_system_ptr;
 
-		/* A vector containing all the logical neighbours of this MPI node */
-		std::vector<int> neighbours;
-
-		/* The MPI rank of this process */
-		int rank;
-
 		/* Handle to the thread that will listen for incoming MPI messages */
 		pthread_t recv_thread;
 
@@ -39,11 +33,6 @@ class Bridge {
 		/* A lock used to ensure a receiving threads that probes a packet also receives it*/
 		pthread_spinlock_t recv_lock;
 #endif // MPI_VERSION<3
-
-		/* Stream used for printing messages */
-		stringstream ss;
-
-
 
 
 		/** constructor */
@@ -101,8 +90,23 @@ class Bridge {
 		 * Initiates a stencil operation
 		 * @param packet_list A vector containing GPRM packets to be scattered among the neighbours
 		 */
-		void stencil(std::vector<Packet_t> packet_list);
+		void stencil(std::vector<Packet_t> packet_list); // TODO: Remove?
 
+		/**
+		 * Returns the rank of this MPI node
+		 * @return the value of the rank variable
+		 */
+		int get_rank();
+
+	private:
+		/* Stream used for printing messages */
+		stringstream ss;
+
+		/* A vector containing all the logical neighbours of this MPI node */
+		std::vector<int> neighbours;
+
+		/* The MPI rank of this process */
+		int rank;
 
 };
 

@@ -11,29 +11,22 @@ void Transceiver::transmit_packets()  {
             while (tx_fifo.status()==1){
                 Packet_t packet= tx_fifo.front();tx_fifo.pop_front();
                 Service service_id= getTo(getHeader(packet));
-				//ServiceAddress dest=service_id; // gw_address: not in this implementation
-#ifdef VERBOSE
-                // cout << "PACKET:\n" << ppPacket(packet) << "\n"; //TODO: Uncomment for final version
-                //cout << "service id: " <<service_id<< "; dest addr: " <<dest<< ""<<endl;// Ashkan_debug //TODO: Uncomment for final version
-#endif // VERBOSE
 
-                // if (dest==sba_system.gw_address ){ // gw_address: not in this implementation
+                // if (dest==sba_system.gw_address ){ // gw_address was not used since its existence is not necessary to bridges
+				// Therefore, the code should never enter the block below
 				if (false) {
 #ifdef VERBOSE
 					cout << "Packet for gateway (MOCK)\n";
 #endif // VERBOSE
-                	// sba_system.gw_instance.transceiver.rx_fifo.push_back(packet); // gw_address: not in this implementation
+                	// sba_system.gw_instance.transceiver.rx_fifo.push_back(packet); gw_address was not used since its existence is not necessary to bridges
 #ifdef VERBOSE
 					cout << "Packet delivered to gateway (MOCK)\n";
 #endif // VERBOSE
 
                 } else {
-/*
-    It is possible that the service_id is higher than the highest node id.
-    In that case we remap using modulo. This requires that node ids are contiguous!    
-*/
 
 #ifndef BRIDGE
+	/* Part of the original code */
 	#ifdef VERBOSE
                 	cout <<"WARNING: ad-hoc dest computation: "<<((service_id-1) % NSERVICES)+1<< "\n";
 	#endif
@@ -43,24 +36,31 @@ void Transceiver::transmit_packets()  {
                     sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 #else // ifdef BRIDGE
 	#ifdef VERBOSE
-					cout <<"WARNING: ad-hoc dest computation (MPI): "<<((service_id-1) % (sba_system.get_size()*NSERVICES))+1<< " (from "<<service_id<<")\n";
+					/* There still is a chance that service_id will be larger than the node with the largest node_id*/
+					/* Solution: use modulo, like the original GMCF code */
+					cout <<"WARNING: ad-hoc dest computation (MPI): "<<((service_id-1) % (sba_system.get_size()*NSERVICES))+1<< " (original: "<<service_id<<")\n";
 	#endif // VERBOSE
 					ServiceAddress dest = ((service_id-1) % (sba_system.get_size()*NSERVICES))+1;
 					int dest_rank = (int) (dest -1) / NSERVICES;
 					if (dest_rank == sba_system.get_rank()){
 	#ifdef VERBOSE
-					cout << "Rank " << sba_system.get_rank() << " (transc): sending packet to self ("<<service_id<<")\n";						
+					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to self ("<<service_id<<")\n";						
 	#endif // VERBOSE
+					/* Receiver in same node -> no use of bridge required */
 					sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 					}
 					else {
 	#ifdef VERBOSE
-					cout << "Rank " << sba_system.get_rank() << " (transc): sending packet to " << dest_rank << " (" << dest << ","<<service_id<<")\n";
+					cout << "Rank " << sba_system.get_rank() << " (transceiver): sending packet to " << dest_rank << " (" << dest << ","<<service_id<<")\n";
 	#endif // VERBOSE
+
+	/* Send the packet using a bridge */
 	
 	#ifdef THREADED_SEND
+						/* Create a new thread that will send the message */
 						sba_system.send_th(packet);
 	#else // THREADED_SEND
+						/* Invoke the bridge method responsible for sending the message */
 						sba_system.send(packet);
 	#endif // THREADED_SEND
 					}

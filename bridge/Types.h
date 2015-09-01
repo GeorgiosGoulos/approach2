@@ -24,39 +24,53 @@ typedef unsigned int MemAddress; // typically fits into Subtask
 typedef MemAddress ServiceAddress;
 
 
-#define NSERVICES 9
+/* Indicates the number of Tile instances to be created on each MPI node */
+#define NSERVICES 9 
 
 #ifdef BRIDGE
+
+/* Indicates the number of bridges to be created in each MPI node */
+#define NBRIDGES 1 
 
 typedef uint8_t tag_t; // should not be larger than 4 bits (0 - 15)
 typedef uint16_t receiver_t; // node_id of the receiving tile, should not be larger than 14 bits ( 1 - 16383, 0 is not used as a node_id)
 typedef uint16_t sender_t; // node_id of the sending tile, should not be larger than 14 bits ( 1- 16383, 0 is not used as a node_id)
 
+
+/* The idea of using fields in the tag that labels MPI messages was taken from GMCF, which uses the same technique for 
+ * defining many fields in the header of a GMCF packet 
+ */
+
+/* The tag field uses the 4 rightmost bits of the tag that labels a MPI message */
 const unsigned int F_tag_t = 0x0000000FU;
+
+/* The receiver field uses the 14 bits to the left of the tag field */
 const unsigned int F_receiver_t = 0x0003FFF0U;
+
+/* The sender field uses the leftmost 14 bits of the tag */
 const unsigned int F_sender_t = 0xFFFC0000U;
 
+/* Constants indicating the first bit in the tag that the field uses */
 const unsigned int FS_tag_t = 0;
 const unsigned int FS_receiver_t = 4;
 const unsigned int FS_sender_t = 18;
 
 enum MPI_Send_Type { // Should be <16 since (4 bits will be used when creating the tag)
+
+	/* Used for testing purposes */
+	tag_test = 0,
+
+	/* Default tag, currently used for all messages besides the ones containing the float array of DRESP packets */
 	tag_default = 1,
-	tag_dresp_data = 2,
-	tag_stencil_scatter = 7, // TODO: remove
-	tag_stencil_reduce = 3,
-	tag_neighboursreduce_scatter = 4,
-	tag_neighboursreduce_reduce = 5,
-	tag_neighboursreduce_bcast = 6,
-	tag_test = 0 // TODO: Remove?
+
+	/* Used with messages containing the float array of DRESP packets */
+	tag_dresp_data = 2
 };
 
-#define TMP_RANK 0 // debugging, used in System.h/System.cc
-#define NBRIDGES 1 // tmp, used in System.h/System.cc
-
-
 #endif // BRIDGE
-// The rest is defined in the original GMCF code
+
+
+/* The rest is defined in the original GMCF code */
 
 //template <typename Packet_t, Word depth>
 class RX_Packet_Fifo {

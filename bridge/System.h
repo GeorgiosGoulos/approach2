@@ -24,6 +24,7 @@ class System: public Base::System {
 		/* A mapping of the Tile instances and their service number (or node_id). Taken from the original GMCF code */
 		std::unordered_map<Service,Tile*> nodes;
 
+/* Member variables used with Bridges */
 #ifdef BRIDGE
 
 		/* The list of Bridge instances that can be used for communication between processes */
@@ -37,21 +38,23 @@ class System: public Base::System {
 
 	#ifdef EVALUATE
 		
-			/* indicates whether a test is underway */
-			bool testing_status;
-	#endif // EVALUATE
+		/* indicates whether a test is underway. Used in test_time_dresp() */
+		bool testing_status;
 
-	#ifdef EVALUATE
 		/* double indicating the time elapsed since an arbitrary point in the past. Used for calculating the time it takes for a 
-		 * send() operation */
-		double start_time; //TODO: change name?
+		 * test to be completed */
+		double start_time;
 
-		double total_time;
+		/* double indicating the time elapsed since an arbitrary point in the past. Used for calculating the time it takes for a 
+		 * test to be completed */
+		double end_time;
 
 		#ifdef THREADED_SEND
+
 		/* Used for measuring the time it took to start the sending thread */
 		double send_thread_start;
 		#else
+
 		/* Used for measuring the time it took to invoke the Bridge::send() method */
 		double send_fcn_start;
 		#endif // THREADED_SEND
@@ -63,13 +66,10 @@ class System: public Base::System {
 		stringstream ss; 
 	#endif // VERBOSE
 
-
-
-
-
-
 #endif //BRIDGE
-		
+
+
+/* Member methods usd with Bridges */
 #ifdef BRIDGE
 		
 		/* Constructor used when BRIDGE is defined */
@@ -79,8 +79,10 @@ class System: public Base::System {
 			
 			/* No test is underway */
 			testing_status = false;
+
+			/* Initialise the doubles used for measuring time */
 			start_time = 0;
-			total_time = 0;
+			end_time = 0;
 	#endif // EVALUATE
 
 			/* Thread support level */
@@ -121,6 +123,7 @@ class System: public Base::System {
 
 			/* Check the MPI version used */
 #ifdef VERBOSE
+			/* Allow only node 0 to print the message */
 			if (rank==0) {
 				ss.str("");
 				ss << "MPI version: ";
@@ -187,6 +190,7 @@ class System: public Base::System {
 						ss << "Rank " << rank << ": Adding tile with node_id " << (int) node_id << "\n";
 						cout << ss.str();
 	#endif // VERBOSE
+						/* Create the Tile instances */
 						nodes[node_id]=new Tile(this, node_id, service_address, rank);
 					}
 				}
@@ -202,7 +206,7 @@ class System: public Base::System {
 			pthread_spin_init(&killed_threads_lock, PTHREAD_PROCESS_SHARED); 
 
 		};
-#endif // BRIDGE // should add a #else here when integrated in the GMCF code so that the original constructors are used #ifndef BRIDGE
+#endif // BRIDGE // TODO: add a #else here when integrated in the GMCF code so that the original constructors are used only #ifndef BRIDGE
 
 		/** 
 		 * Destructor for the System class
@@ -210,7 +214,7 @@ class System: public Base::System {
 		~System(){
 		
 #ifdef BRIDGE		
-			/* System instance is terminating. Receiving threads check the active should now terminate as well */
+			/* System instance is terminating. Receiving threads that check the active variable should now terminate as well */
 			active = false;
 	#ifdef VERBOSE
 			ss.str("");
@@ -224,13 +228,19 @@ class System: public Base::System {
 			ss << "Rank " << rank << ": killed all " << bridge_list.size() << " receiving thread(s)...\n";
 			cout << ss.str();
 	#endif // VERBOSE
+			
+			/* Destroy the locks */
 			pthread_spin_destroy(&killed_threads_lock);
 			pthread_spin_destroy(&bridge_selector_lock); 
+
+			/* Destroy the bridges */
 			for (Bridge *bridge_ptr: bridge_list){
 				delete bridge_ptr;
 			}
 	
-	/* Finalise MPI. No more MPI routines should be executed after this point */
+	/* Finalise MPI. No more MPI routines should be executed after this point
+	 * The System destructor will be called after all operations have been performed. Therefore there is no need to check for
+	 * non-terminated sending threads */
 	MPI_Finalize();
 	#ifdef VERBOSE
 			ss.str("");
@@ -292,10 +302,6 @@ class System: public Base::System {
 		 */
 		void send(Packet_t packet, int tag=tag_default);
 
-
-		//void stencil_operation(std::vector<Packet_t> packet_list); // TODO: Remove?
-		//void neighboursreduce_operation(std::vector<Packet_t> packet_list); //TODO: Remove?
-
 		/**
 		 * Returns the status of the System, which is true until the destructor of the System instance is called
 		 * @return the value of active
@@ -308,6 +314,7 @@ class System: public Base::System {
 		void kill_thread(); 
 
 	#ifdef MPI_TOPOLOGY_OPT
+
 		/**
 		 * Creates a new (possibly optimised) communicator that handles the logical topology as a torus architecture
 		 * @param rows the number of rows in the logical topology to be created
@@ -361,7 +368,6 @@ class System: public Base::System {
 		 * Increments the member variable that indicates the index of the next bridge to be used 
 		 */
 		void increment_bridge_pos();
-
 
 #endif // BRIDGE
 

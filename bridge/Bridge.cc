@@ -165,8 +165,10 @@ void Bridge::send(Packet_t packet, int tag) {
 
 #ifdef EVALUATE
 	#ifdef VERBOSE
+		#ifndef THREADED_SEND
 	/* Used for measuring the time it took to invoke the Bridge::send() method */
-	sba_system.fcn_thread_start = MPI_Wtime();
+	sba_system.send_fcn_start = MPI_Wtime();
+		#endif // THREADED_SEND
 	#endif// VERBOSE
 
 #endif //EVALUATE
@@ -266,6 +268,11 @@ void Bridge::send_th(Packet_t packet, int tag) {
 // Returns the MPI neighbours of the current MPI process in  System::process_tbl
 std::vector<int> Bridge::get_neighbours(){
 	return sba_system_ptr->get_neighbours();
+}
+
+//Returns the rank of this MPI node
+int Bridge::get_rank(){
+	return rank;
 }
 
 // Initiates a stencil operation
@@ -427,7 +434,7 @@ void* wait_recv_any_th(void *arg){
 	#endif // VERBOSE
 			printf("RANK %d: TIME: %fsecs\n", sba_system.get_rank(), end-start); //TODO: uncomment?
 
-			sba_system.total_time += end - start;
+			sba_system.end_time += end - start;
 
 			/* The test is completed */
 			sba_system.testing_status=false; 
@@ -490,7 +497,7 @@ void* wait_recv_any_th(void *arg){
 		ServiceAddress dest = service_id;
 		sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 #ifdef VERBOSE
-		printf("Rank %d (Recv): Sent packet to dest %d\n", bridge->rank, dest);
+		printf("Rank %d (Recv): Sent packet to dest %d\n", sba_system.get_rank(), dest);
 #endif // VERBOSE
 
 	}

@@ -1,13 +1,12 @@
 #ifndef SERVICE_MGR_CONF_H_
 #define SERVICE_MGR_CONF_H_
 
-///#include "Base/Types.h" //
-//#include "./Base/Types.h" // WHY?
 
-//using namespace SBA;
+/* Part of the original GMCF code */
 
 namespace SBA {
 
+	/* Indicates the number of words in a GMCF packet header */
 	#define HEADER_SZ 3
 
 	// For compatibility with streaming data, we either add a Mode field (stream or 'datagram') or we use a bit in the Type field

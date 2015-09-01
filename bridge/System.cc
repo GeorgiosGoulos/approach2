@@ -75,8 +75,6 @@ void System::find_neighbours(){
 		}	
 	}
 
-	// Sort the neighbours: not really needed
-	//std::sort(neighbours.begin(), neighbours.end());
 }
 
 	#else // ifndef MPI_TOPOLOGY_OPT 
@@ -204,18 +202,6 @@ void System::send(Packet_t packet, int tag){
 	#endif // VERBOSE
 	this->bridge_list.at(bridge_pos)->send(packet, tag);
 }
-
-/*void System::stencil_operation(std::vector<Packet_t> packet_list){
-	increment_bridge_pos();
-	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a stencil operation\n", rank, bridge_pos, bridge_list.size()-1);
-	this->bridge_list.at(bridge_pos)->stencil(packet_list);
-}
-
-void System::neighboursreduce_operation(std::vector<Packet_t> packet_list){
-	increment_bridge_pos();
-	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a neighboursreduce operation\n", rank, bridge_pos, bridge_list.size()-1);
-	this->bridge_list.at(bridge_pos)->neighboursreduce(packet_list);
-}*/
 
 // Increments the member variable that indicates the index of the next bridge to be used 
 void System::increment_bridge_pos(){ 
