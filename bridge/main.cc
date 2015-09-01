@@ -83,15 +83,15 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for n DRESP packets to be sent AND an ack packet to be sent and retrieved */
-	//test_time_dresp(sba_system, 200000, 10);
+	test_time_dresp(sba_system, 200000, 1000);
 
 	/* EVALUATION - time it takes for all the tiles on a node to send 1 packet to a tile on another node */
-	test_all_tiles_in_node_send(sba_system, 200000);
+	//test_all_tiles_in_node_send(sba_system, 200000);
 	
 #endif // EVALUATE
 	
-	for (long i=0; i < 20000000;i++) {} // Keep the program running indefinitely // TODO: Change
-	//for (;;){}
+	//for (long i=0; i < 2000000;i++) {} // Keep the program running indefinitely // TODO: Change
+	for (;;){}
 }
 
 // Tests the transmission of GMCF packets of type P_DRESP to other MPI processes
@@ -182,17 +182,17 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 		/* Calculate the size of the float array to be sent based on the number of bytes to be sent */
 		int number_of_floats = size_of_array/sizeof(float);
 
-#ifdef VERBOSE // TODO: Uncomment
+//#ifdef VERBOSE
 		stringstream ss;
 		ss << "Rank " << sba_system.get_rank() << ": sending " << num_packets << " packet(s) with ";
 		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes) each\n";
 		cout << ss.str();
-#endif // VERBOSE
+//#endif // VERBOSE
 	
 		/* Perform the test for each packet */
 		for (int i=0;i< num_packets; i++) {
 
-#ifdef VERBOSE // TODO: Uncomment
+#ifdef VERBOSE
 			ss.str("");
 			ss << "Creating and sending packet No." << i << "...\n";
 			cout << ss.str();
@@ -264,7 +264,7 @@ void test_all_tiles_in_node_send(System& sba_system, int size_of_array){
 		/* Calculate the size of the float array to be sent based on the number of bytes to be sent */
 		int number_of_floats = size_of_array/sizeof(float);
 
-#ifdef VERBOSE // TODO: Uncomment
+#ifdef VERBOSE 
 		stringstream ss;
 		ss << "Rank " << sba_system.get_rank() << ": Each tile will send 1 DRESP packet with  ";
 		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes)\n";

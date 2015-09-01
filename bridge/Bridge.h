@@ -30,8 +30,11 @@ class Bridge {
 		pthread_t recv_thread;
 
 #if  MPI_VERSION<3
-		/* A lock used to ensure a receiving threads that probes a packet also receives it*/
+		/* A lock used to ensure a receiving thread that probes a packet also receives it*/
 		pthread_spinlock_t recv_lock;
+
+		/* A lock used to ensure the proper execution of MPI_ISend()*/
+		pthread_spinlock_t send_lock;
 #endif // MPI_VERSION<3
 
 
@@ -40,8 +43,9 @@ class Bridge {
 			neighbours = sba_system_ptr->get_neighbours();		
 
 #if MPI_VERSION<3
-			/* Initialise the spinlock */
+			/* Initialise the spinlocks */
 			pthread_spin_init(&recv_lock, PTHREAD_PROCESS_SHARED); 
+			pthread_spin_init(&send_lock, PTHREAD_PROCESS_SHARED); 
 #endif // MPI_VERSION<3
 
 			/* create receiving thread */
@@ -64,6 +68,7 @@ class Bridge {
 #if MPI_VERSION<3
 			pthread_spin_destroy(&recv_lock);		
 #endif // MPI_VERSION<3
+			pthread_spin_destroy(&recv_lock);
 		}
 		
 

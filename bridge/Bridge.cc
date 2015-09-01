@@ -12,9 +12,6 @@
 using namespace std;
 using namespace SBA;
 
-/* Temporary solution for threads not getting stuck in wait_recv_any_th() */
-#define MAX_ITERATIONS 2000 
-
 /**
  * Used for passing parameters to threads 
  */
@@ -25,28 +22,6 @@ struct bridge_packets{
 	/* A list of GPRM packets to be scattered among neighbours of the current MPI node */
 	std::vector<Packet_t> packet_list;
 };
-
-//TODO: Document if it works
-
-int create_tag(tag_t tag_type, receiver_t receiver=0, sender_t sender=0){
-	int tag_field = (tag_type << FS_tag_t) & F_tag_t;
-	int receiver_field = (receiver << FS_receiver_t) & F_receiver_t;
-	int sender_field = (sender << FS_sender_t) & F_sender_t;
-	int final_tag = tag_field + receiver_field + sender_field;
-	return final_tag;
-}
-
-int get_tag_type(int final_tag){
-	return (final_tag & F_tag_t) >> FS_tag_t;
-}
-
-int get_receiver_id(int final_tag){
-	return (final_tag & F_receiver_t) >> FS_receiver_t;
-}
-
-int get_sender_id(int final_tag){
-	return (final_tag & F_sender_t) >> FS_sender_t;
-}
 
 /**
  * Used for passing parameters to threads 
@@ -63,93 +38,52 @@ struct bridge_packet_tag{
 };
 
 /**
- * A helper function that "converts" floating-point numbers to elements of type Word
- * @param x the floating-point number to be converted
- * @return the element of type Word
+ * Used for creating tags that label MPI messages
+ * @param tag_type the type of tag, see enum MPI_Send_Type in Types.h
+ * @param receiver the node_id of the receiving tile
+ * @param sender the node_id of the sending tile
+ * @return the tag
  */
-uint64_t float2Word(float x) {
-    Word *y = reinterpret_cast<Word*>(&x); // endianness should be taken into consideration if different machines are used
-    return *y;
+int create_tag(tag_t tag_type, receiver_t receiver=0, sender_t sender=0){
+	int tag_field = (tag_type << FS_tag_t) & F_tag_t;
+	int receiver_field = (receiver << FS_receiver_t) & F_receiver_t;
+	int sender_field = (sender << FS_sender_t) & F_sender_t;
+	int final_tag = tag_field + receiver_field + sender_field;
+	return final_tag;
 }
 
 /**
- * A helper function that "converts" elements of type Word to floating-point numbers
- * @param x the element of type Word to be converted
- * @return the floating-point number
+ * Given a tag return the type of the tag (see enum MPI_Send_Type in Type.h)
+ * @param final_tag the tag
+ * @return the tag type
  */
-float Word2float(Word x) {
-    float *y = reinterpret_cast<float*>(&x); // endianness should be taken into consideration if different machines are used
-    return *y;
+int get_tag_type(int final_tag){
+	return (final_tag & F_tag_t) >> FS_tag_t;
 }
 
 /**
- * A helper function that packages the contents of floating-point arrays together with the contents of GPRM packets
- * of type P_DRESP so that they can be sent as one message using MPI routines
- * @param packet the GPRM packet
- * @return The packaged contents
+ * Given a tag return the node_id of the receiver 
+ * @param final_tag the tag
+ * @return the node_id of the receiver
  */
-Packet_t packDRespPacket(Packet_t packet){
-	Header_t header = getHeader(packet);
-
-	if (getPacket_type(header) != P_DRESP) return packet; // Failsafe
-
-	/* Get size of float array */
-	int data_size = getReturn_as(header); 
-
-#ifdef VERBOSE
-	cout << "packP - Data size: " << data_size << endl; //TODO: Remove
-#endif // VERBOSE
-
-	void* ptr = (void *) packet.back();
-	float *arr = (float*)ptr;
-
-	for (int i = 0; i < data_size; i++){
-#ifdef VERBOSE
-		//cout << "Pack: Adding " << *(arr+i) << endl; //TODO: Remove
-#endif // VERBOSE
-		packet.push_back(float2Word(*(arr+i)));
-	}
-	return packet;
+int get_receiver_id(int final_tag){
+	return (final_tag & F_receiver_t) >> FS_receiver_t;
 }
 
 /**
- * A helper function that unpackages the contents of MPI messages sent between processes
- * @param packet the MPI packet/message
- * @return The GPRM packet
+ * Given a tag return the node_id of the sender
+ * @param final_tag the tag
+ * @return the node_id of the sender
  */
-Packet_t unpackDRespPacket(Packet_t packet) {
-	Header_t header = getHeader(packet);
-	if (getPacket_type(header) != P_DRESP) return packet; //Failsafe
-
-	int original_size = getLength(header); // size of the payload of the GPRM packet
-	int data_size = getReturn_as(header); // size of the float array that the pointer in the GPRM packet points to
-
-	Packet_t new_packet;
-	float *arr = new float[data_size];
-
-	/* Copy the contents of the header and payload to a new packet */
-	for (vector<Word>::iterator it = packet.begin(); it < packet.begin() + getHeader(packet).size() + original_size - 1; it++){
-		new_packet.push_back(*it);
-	}
-	
-	/* Push the pointer to the float array to the back of the new packet */
-	new_packet.push_back((Word) arr);
-
-	int counter = 0;
-	for (vector<Word>::iterator it = packet.begin() + getHeader(packet).size() + original_size; it < packet.end(); it++){
-		//cout << "Unpack: Adding " << Word2float(*it) << endl; //TODO: Remove
-		arr[counter++] = Word2float(*it);
-	}
-
-	return new_packet;
+int get_sender_id(int final_tag){
+	return (final_tag & F_sender_t) >> FS_sender_t;
 }
-
 
 /**
  * A function that will be executed by a thread which will initiate a stencil operation
  * @param args a void pointer that points to a dynamically allocated bridge_packets structure
  */
-void* stencil_operation_th(void *args);
+void* stencil_operation_th(void *args); // TODO: Remove?
 
 /**
  * A function that will be executed by a thread which will initiate a send operation
@@ -170,7 +104,6 @@ void Bridge::send(Packet_t packet, int tag) {
 	sba_system.send_fcn_start = MPI_Wtime();
 		#endif // THREADED_SEND
 	#endif// VERBOSE
-
 #endif //EVALUATE
 
 	/* Pointer to the communicator to be used for this operation */
@@ -188,13 +121,17 @@ void Bridge::send(Packet_t packet, int tag) {
 	/* A handle to a request object used for quering the status of the send operation */
 	MPI_Request req;
 
+	/* Lock */ // TODO: Remove
+	//pthread_spin_lock(&(bridge->recv_lock));
+
 	/* Send the MPI message */
 	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, to_rank, tag, *comm_ptr, &req);
 
+	/* Lock */ //TODO: Remove
+	//pthread_spin_unlock(&(bridge->recv_lock));
+
 	/* Flag that indicates the status of the send operation */
 	int flag;
-
-
 
 	/* Wait until the whole message is sent */
 	do { 
