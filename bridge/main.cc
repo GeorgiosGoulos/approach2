@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
 	//test_time_dresp(sba_system, 200000, 10);
 
 	/* EVALUATION - time it takes for all the tiles on a node to send 1 packet to a tile on another node */
-	test_all_tiles_in_node_send(sba_system, 1000);
+	test_all_tiles_in_node_send(sba_system, 200000);
 	
 #endif // EVALUATE
 	
