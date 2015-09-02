@@ -423,6 +423,9 @@ void* wait_recv_any_th(void *arg){
 #ifdef VERBOSE
 			printf("Rank %d: Float array received!\n", sba_system.get_rank());
 #endif // VERBOSE
+
+			/* store the arr pointer in the back of the packet, remove the Word the contained the previous pointer (on the sending node) */
+			packet.at(packet.size()-1) = (Word) arr;
 		}
 
 #ifdef EVALUATE	

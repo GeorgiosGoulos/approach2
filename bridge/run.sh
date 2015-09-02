@@ -8,7 +8,7 @@ TOTAL=$(($ROWS*$COLS)) # Total number of processes
 # MPI_TOPOLOGY_OPT: Used when the potentially optimised cartesian topology should be utilised
 # VERBOSE: Print messages that indicate the operations taking place
 
-if mpic++ -pthread -std=c++11  -DBRIDGE  -DEVALUATE -DVERBOSE -DTHREADED_SEND -DMPI_TOPOLOGY_OPT -Wall -Werror main.cc System.cc Tile.cc Transceiver.cc Packet.cc Bridge.cc; then		# COMPILATION
+if mpic++ -pthread -std=c++11  -DBRIDGE -DVERBOSE -DTHREADED_SEND -DMPI_TOPOLOGY_OPT -Wall -Werror main.cc System.cc Tile.cc Transceiver.cc Packet.cc Bridge.cc; then		# COMPILATION
 	mpiexec -np $TOTAL ./a.out $ROWS $COLS		# EXECUTION
 	#mpiexec -np $TOTAL valgrind --suppressions=$PREFIX/openmpi-valgrind.supp --gen-suppressions=yes ./a.out $ROWS $COLS	
 
