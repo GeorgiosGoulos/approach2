@@ -76,7 +76,7 @@ int main(int argc, char *argv[]){
 #endif //VERBOSE
 
 	/* TEST - mkHeader, mkPacket, P_DRESP */
-	send_packet_dresp(sba_system);
+	//send_packet_dresp(sba_system);
 
 	/* TEST - mkHeader, mkPacket, no P_DRESP */	
 	//send_packet_no_dresp(sba_system);
