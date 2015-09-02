@@ -83,7 +83,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for n DRESP packets to be sent AND an ack packet to be sent and retrieved */
-	//test_time_dresp(sba_system, 200000, 1000);
+	test_time_dresp(sba_system, 200000, 1000);
 
 	/* EVALUATION - time it takes for all the tiles on a node to send 1 packet to a tile on another node */
 	//test_all_tiles_in_node_send(sba_system, 200000);
