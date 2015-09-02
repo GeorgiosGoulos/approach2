@@ -265,7 +265,11 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 		}
 
 		/* Print the average time it took, the total number of packets sent and the number of bridges created */
-		printf("Rank %d: Sent %d packets. It took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used\n", 
+#ifndef THREADED_SEND
+		printf("Rank %d: Sent %d packets. It took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used. Did not use threaded sends\n", 
+#else // THREADED_SEND
+		printf("Rank %d: Sent %d packets. It took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used. Used threaded sends\n", 
+#endif // THREADED_SEND
 		sba_system.get_rank(), num_packets, sba_system.end_time/num_packets, NBRIDGES);
 
 	}
